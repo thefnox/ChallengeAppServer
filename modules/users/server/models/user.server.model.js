@@ -111,6 +111,18 @@ var UserSchema = new Schema({
     default: ['user'],
     required: 'Please provide at least one role'
   },
+  postCount: {
+    type: Number,
+    default: 0
+  },
+  commentCount: {
+    type: Number,
+    default: 0
+  },
+  stars: {
+    type: Number,
+    default: 0
+  },
   updated: {
     type: Date
   },
