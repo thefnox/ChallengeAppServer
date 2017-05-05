@@ -26,8 +26,25 @@ var ChallengeSchema = new Schema({
     type: String
   },
   content: {
-    type: Schema.ObjectId,
-    ref: 'Content'
+    checksum: {
+      type: String
+    },
+    length: {
+      type: Number
+    },
+    size: {
+      type: Number
+    },
+    filePath: {
+      type: String
+    },
+    staticURL: {
+      type: String
+    },
+    image: {
+      type: Boolean,
+      default: false
+    }
   },
   comments: [{
     author: {
@@ -36,6 +53,10 @@ var ChallengeSchema = new Schema({
     },
     text: String,
     created: {
+      type: Date,
+      default: Date.now
+    },
+    updated: {
       type: Date,
       default: Date.now
     }
@@ -59,5 +80,25 @@ var ChallengeSchema = new Schema({
     ref: 'User'
   }
 });
+
+ChallengeSchema.statics.findUniqueUsername = function (username, suffix, callback) {
+  var _this = this;
+  var possibleUsername = username.toLowerCase() + (suffix || '');
+
+  _this.findOne({
+    username: possibleUsername
+  }, function (err, user) {
+    if (!err) {
+      if (!user) {
+        callback(possibleUsername);
+      } else {
+        return _this.findUniqueUsername(username, (suffix || 0) + 1, callback);
+      }
+    } else {
+      callback(null);
+    }
+  });
+};
+
 
 mongoose.model('Challenge', ChallengeSchema);
