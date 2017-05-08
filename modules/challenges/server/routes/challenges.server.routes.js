@@ -20,24 +20,24 @@ module.exports = function (app) {
   //Create new post
   app.route('/api/post').post(controller.createPost);
   //Get info about a specific post
-  app.route('/api/post/:id').get(controller.getPost);
+  app.route('/api/post/:post_id').get(controller.getPost);
   //Delete own post
-  app.route('/api/post/:id').delete(controller.deletePost);
+  app.route('/api/post/:post_id').delete(controller.deletePost);
   //Update post
-  app.route('/api/post/:id').put(controller.updatePost);
+  app.route('/api/post/:post_id').put(controller.updatePost);
   //Comment on post
-  app.route('/api/post/:id/comment').post(controller.createComment);
+  app.route('/api/post/:post_id/comment').post(controller.createComment);
   //Delete comment on post
-  app.route('/api/post/:id/comment/:comment_id').delete(controller.createComment);
+  app.route('/api/post/:post_id/comment/:comment_id').delete(controller.deleteComment);
   //Edit comment on post
-  app.route('/api/post/:id/comment/:comment_id').put(controller.createComment);
+  app.route('/api/post/:post_id/comment/:comment_id').put(controller.editComment);
   //Like post
-  app.route('/api/post/:id/like').post(controller.likePost);
+  app.route('/api/post/:post_id/like').get(controller.likePost);
   //View post
-  app.route('/api/post/:id/view').post(controller.viewPost);
+  app.route('/api/post/:post_id/view').get(controller.viewPost);
 
 
-  app.param('id', controller.postByID);
+  app.param('post_id', controller.postByID);
   app.param('comment_id', controller.commentByID);
 
 };

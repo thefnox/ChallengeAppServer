@@ -22,26 +22,25 @@ var _ = require('lodash'),
 exports.postByID = function (req, res, next, id) {
   if (!mongoose.Types.ObjectId.isValid(id)) {
     return res.status(400).send({
-      message: 'User is invalid'
+      message: 'Post is invalid'
     });
   }
 
   Challenge.findOne({
     _id: id
-  }).exec(function (err, user) {
-    if (err) {
-      return next(err);
-    } else if (!user) {
-      return next(new Error('Failed to load Challenge ' + id));
-    }
-
-    req.profile = user;
+  }).exec(function (err, post) {
+    req.post = post;
     next();
   });
 };
 
 exports.commentByID = function (req, res, next, id) {
+  var post = req.post;
 
+  if (post){
+    req.comment = post.comments.id(id);
+  }
+  next();
 }
 
 
@@ -52,7 +51,22 @@ exports.getUserPosts = function (req, res) {
   var user = req.user;
 
   if (user) {
-
+    Challenge.find({
+      author: user,
+      deleted: false
+    }).exec(function (err, posts) {
+      if (err) {
+        res.status(422).send(err);
+      }
+      else if (posts)
+      {
+        return res.json(posts);
+      }
+      else
+      {
+        res.status(404).send();
+      }
+    });
   }
 
 };
@@ -80,15 +94,20 @@ exports.createPost = function (req, res) {
     .then(checkHashtags)
     .then(verifyChecksum)
     .then(addExtraInfo)
-    .then(function(post, req, res){
-      res.json(post);
+    .then(function(){
       //Actually save the post to the db with its final info
       post.save(function (err, thepost) {
+        if (err){
+          res.status(422).send(err);
+        }
+        else{
+          res.json(thepost);
+        }
       });
     })
     .catch(function (err) {
       //Upload error
-      res.status(422).send(err);
+      res.status(422).send(typeof(err) === "string" ? err : err.message );
     });
   }
   else
@@ -142,23 +161,19 @@ exports.createPost = function (req, res) {
 
   function verifyChecksum(){
     return new Promise(function (resolve, reject){
-      post.content.isImage = req.file.mimetype !== "video/mp4";
-      post.content.size = req.file.size;
-      post.content.filePath = req.file.path;
-      post.content.staticURL = settings.dest + req.file.filename;
+      post.content = {};
       //Get the content checksum
-      checksum.file(post.content.filePath, function (err, sum) {
+      checksum.file(req.file.path, function (err, sum) {
         if (err) {
           reject(err);
         }
         else {
           //Check that the checksum doesn't already exist
           Challenge.findOne({
-            content: {
-              checksum: sum
-            }
-          }, function (err, post) {
-            if (err || post) {
+            "content.checksum": sum,
+            "deleted": false
+          }, function (err, otherpost) {
+            if (err || otherpost) {
               //Content is not unique
               reject("Post must have unique content!");
             }
@@ -174,10 +189,13 @@ exports.createPost = function (req, res) {
 
   function addExtraInfo(){
     return new Promise(function (resolve, reject){
+      //Remove ./public from url
+      var folder = settings.dest.replace(/\.\/public/g, '');
+      post.author = user;
       post.content.isImage = req.file.mimetype !== "video/mp4";
       post.content.size = req.file.size;
       post.content.filePath = req.file.path;
-      post.content.staticURL = settings.dest + req.file.filename;
+      post.content.staticURL = folder + "/" + req.file.filename;
       if (post.content.isImage) {
         //It's an image, so we're done
         resolve();
@@ -185,8 +203,11 @@ exports.createPost = function (req, res) {
       else {
         //Since it's a video, we have to get its duration
         getDuration(post.content.filePath).then(function (duration) {
-          post.content.duration = duration;
+          post.content.length = duration;
           resolve();
+        })
+        .catch(function(){
+          reject();
         });
       }
     });
@@ -195,65 +216,294 @@ exports.createPost = function (req, res) {
 };
 
 exports.getPost = function (req, res) {
-  var user = req.user;
+  var post = req.post;
 
-  if (user) {
-
+  if (post && !post.deleted){
+    res.json(post);
+  }
+  else
+  {
+    res.status(404).send();
   }
 };
 
 exports.deletePost = function (req, res) {
   var user = req.user;
+  var post = req.post;
 
   if (user) {
-
+    if (post) {
+      if (!post.author.equals(user._id)){
+        res.status(403).send({
+          message: 'Not your challenge'
+        });
+      }
+      else{
+        post.deleted = true;
+        post.save(function (err, thepost) {
+          if (err) {
+            res.status(422).send(err);
+          }
+          else {
+            res.json(thepost);
+          }
+        });
+      }
+    }
+    else {
+      res.status(404).send();
+    }
+  }
+  else {
+    res.status(401).send({
+      message: 'User is not signed in'
+    });
   }
 };
 
 exports.updatePost = function (req, res) {
   var user = req.user;
+  var post = req.post;
+  var upload = multer({}).none();
+  upload(req, res, function (uploadError) {
+    var desc = req.body.description;
 
-  if (user) {
-
-  }
+    if (user) {
+      if (post) {
+        if (!post.author.equals(user._id)) {
+          res.status(403).send({
+            message: 'Not your challenge'
+          });
+        }
+        else {
+          //Description must exist and must be between 1 and 140 characters long
+          if (desc && desc.length > 0 && desc.length <= 140) {
+            post.description = desc;
+            var hashtags = desc.match(/\B#\w*[a-zA-Z]+\w*/);
+            //Post must have at least one hashtag
+            if (hashtags && hashtags.length > 0) {
+              post.tags = hashtags;
+              post.dailyLikes = 0;
+              post.dailyViews = 0;
+              //Actually save the post to the db with its final info
+              post.save(function (err, thepost) {
+                if (err) {
+                  res.status(422).send(err);
+                }
+                else {
+                  res.json(thepost);
+                }
+              });
+            }
+            else {
+              res.status(422).send({
+                message: "Post must have at least one hashtag."
+              });
+            }
+          }
+          else {
+            res.status(422).send({
+              message: "Description must be between 1 and 140 characters long."
+            });
+          }
+        }
+      }
+      else {
+        res.status(404).send();
+      }
+    }
+    else {
+      res.status(401).send({
+        message: 'User is not signed in'
+      });
+    }
+  });
 };
 
 exports.createComment = function (req, res) {
   var user = req.user;
-
-  if (user) {
-
-  }
+  var post = req.post;
+  var upload = multer({}).none();
+  upload(req, res, function (uploadError) {
+    var comment = req.body.comment;
+    if (user) {
+      if (post && !post.deleted) {
+        if (comment && comment.length > 1 && comment.length < 140){
+          post.comments.push({
+            author: user,
+            text: comment
+          });
+          post.save(function (err, thepost) {
+            if (err) {
+              res.status(422).send(err);
+            }
+            else {
+              res.json(thepost.comments);
+            }
+          });
+        }
+        else{
+          res.status(422).send({
+            message: "Comment must be between 1 and 140 characters long."
+          });
+        }
+      }
+      else {
+        res.status(404).send();
+      }
+    }
+    else {
+      res.status(401).send({
+        message: 'User is not signed in'
+      });
+    }
+  });
 };
 
 exports.deleteComment = function (req, res) {
   var user = req.user;
+  var post = req.post;
+  var comment = req.comment;
 
   if (user) {
-
+    if (post) {
+      if (comment){
+        post.comments.id(comment._id).remove();
+        post.save(function (err, thepost) {
+          if (!err){
+            res.status(200).send();
+          }
+          else {
+            res.status(404).send();
+          }
+        });
+      }
+      else{
+        res.status(404).send();
+      }
+    }
+    else {
+      res.status(404).send();
+    }
+  }
+  else {
+    res.status(401).send({
+      message: 'User is not signed in'
+    });
   }
 };
 
 exports.editComment = function (req, res) {
   var user = req.user;
-
-  if (user) {
-
-  }
+  var post = req.post;
+  var comment = req.comment;
+  var upload = multer({}).none();
+  upload(req, res, function (uploadError) {
+    if (user) {
+      if (post) {
+        if (comment) {
+          post.comments.id(comment._id).text = req.body.comment;
+          post.save(function (err, thepost) {
+            if (!err) {
+              res.status(200).send();
+            }
+            else {
+              res.status(404).send();
+            }
+          });
+        }
+        else {
+          res.status(404).send();
+        }
+      }
+      else {
+        res.status(404).send();
+      }
+    }
+    else {
+      res.status(401).send({
+        message: 'User is not signed in'
+      });
+    }
+  });
 };
 
 exports.likePost = function (req, res) {
   var user = req.user;
+  var post = req.post;
 
   if (user) {
-
+    if (post) {
+      var found = false
+      _.each(post.likes, function(element, index, list) {
+        if (element.equals(user._id)) {
+          post.likes.splice(index, 1);
+          post.dailyLikes--;
+          post.save(function (err, thepost) {
+            if (!err){
+              res.status(200).send({
+                likes: post.likes.length
+              });
+            }
+            else {
+              res.status(404).send();
+            }
+          });
+          found = true;
+        }
+      });
+      if (!found) {
+        post.likes.push(user);
+        post.dailyLikes++;
+        post.save(function (err, thepost) {
+          if (!err){
+            res.status(200).send({
+              likes: post.likes.length
+            });
+          }
+          else {
+            res.status(404).send();
+          }
+        });
+      }
+    }
+    else {
+      res.status(404).send();
+    }
+  }
+  else {
+    res.status(401).send({
+      message: 'User is not signed in'
+    });
   }
 };
 
 exports.viewPost = function (req, res) {
   var user = req.user;
+  var post = req.post;
 
   if (user) {
-
+    if (post) {
+      post.views++;
+      post.dailyViews++;
+      post.save(function (err, thepost) {
+        if (!err) {
+          res.status(200).send({
+            views: post.views
+          });
+        }
+        else {
+          res.status(404).send();
+        }
+      });
+    }
+    else {
+      res.status(404).send();
+    }
+  }
+  else {
+    res.status(401).send({
+      message: 'User is not signed in'
+    });
   }
 };

@@ -10,17 +10,20 @@ var mongoose = require('mongoose'),
 
 var ChallengeSchema = new Schema({
   views: {
-    type: Number
+    type: Number,
+    default: 0
   },
   likes: {
     type: [Schema.ObjectId],
     ref: 'User'
   },
   dailyViews: {
-    type: Number
+    type: Number,
+    default: 0
   },
   dailyLikes: {
-    type: Number
+    type: Number,
+    default: 0
   },
   description: {
     type: String
