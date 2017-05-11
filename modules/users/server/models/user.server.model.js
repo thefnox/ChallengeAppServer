@@ -111,6 +111,20 @@ var UserSchema = new Schema({
     default: ['user'],
     required: 'Please provide at least one role'
   },
+  following: [
+    {
+      type: Schema.ObjectId,
+      ref: 'User'
+    }
+  ],
+  followerCount:{
+    type: Number,
+    default: 0
+  },
+  followingCount:{
+    type: Number,
+    default: 0
+  },
   postCount: {
     type: Number,
     default: 0
@@ -148,7 +162,13 @@ UserSchema.pre('save', function (next) {
     this.password = this.hashPassword(this.password);
   }
 
-  next();
+  this.followers((err, users) => {
+    this.followerCount = users.length;
+    if (this.following && this.isModified('following')) {
+      this.followingCount = this.following.length;
+    }
+    next();
+  });
 });
 
 /**
@@ -176,6 +196,33 @@ UserSchema.methods.hashPassword = function (password) {
     return password;
   }
 };
+
+UserSchema.methods.followers = function(cb){
+  return this.model('User').find({
+    followers: {
+      $in: [this._id]
+    },
+  }, cb);
+}
+
+UserSchema.methods.sanitize = function(){
+  return {
+    _id: this._id,
+    displayName: validator.escape(this.displayName),
+    provider: validator.escape(this.provider),
+    username: validator.escape(this.username),
+    created: this.created,
+    stars: this.stars,
+    commentCount: this.commentCount,
+    postCount: this.postCount,
+    roles: this.roles,
+    profileImageURL: this.profileImageURL,
+    email: validator.escape(this.email),
+    lastName: validator.escape(this.lastName),
+    firstName: validator.escape(this.firstName),
+    additionalProvidersData: this.additionalProvidersData
+  };
+}
 
 /**
  * Create instance method for authenticating user

@@ -10,5 +10,7 @@ module.exports = function (app) {
 
   // Root routing
   var controller = require('../controllers/search.server.controller');
+  app.route('/api/search/tag').get(controller.searchTags);
 
+  app.route('/api/search/user').get(controller.searchUser);
 }

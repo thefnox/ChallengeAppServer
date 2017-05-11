@@ -18,7 +18,7 @@ module.exports = {
   // Session Cookie settings
   sessionCookie: {
     // session expiration is set by default to 24 hours
-    maxAge: 24 * (60 * 60 * 1000),
+    maxAge: 7 * 24 * (60 * 60 * 1000),
     // httpOnly flag makes sure the cookie is only accessed
     // through the HTTP protocol and not JS/browser
     httpOnly: true,
@@ -49,13 +49,13 @@ module.exports = {
     profileUpload: {
       dest: './modules/users/client/img/profile/uploads/', // Profile upload destination path
       limits: {
-        fileSize: 1024 * 1024 // Max file size in bytes (10 MB)
+        fileSize: 10 * 1024 * 1024 // Max file size in bytes (10 MB)
       }
     },
     contentUpload: {
       dest: './public/content/',
       limits: {
-        fileSize: 30 * 1024 * 1024 // Max file size in bytes (5 MB)
+        fileSize: 30 * 1024 * 1024 // Max file size in bytes (30 MB)
       }
     }
   },

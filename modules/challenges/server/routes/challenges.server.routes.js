@@ -17,6 +17,14 @@ module.exports = function (app) {
   // Return a 404 for all undefined api, module or lib routes
   //Get user's posts
   app.route('/api/post').get(controller.getUserPosts);
+  //Get newest posts
+  app.route('/api/post/newest').get(controller.getNewestPosts);
+  //Get daily posts
+  app.route('/api/post/daily').get(controller.getDailyTopPosts);
+  //Get popular posts
+  app.route('/api/post/popular').get(controller.getMostPopularPosts);
+  //Get followers posts
+  app.route('/api/post/following').get(controller.getFollowingPosts);
   //Create new post
   app.route('/api/post').post(controller.createPost);
   //Get info about a specific post

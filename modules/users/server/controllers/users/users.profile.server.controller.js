@@ -11,6 +11,7 @@ var _ = require('lodash'),
   multer = require('multer'),
   config = require(path.resolve('./config/config')),
   User = mongoose.model('User'),
+  Challenge = mongoose.model('Challenge'),
   validator = require('validator');
 
 var whitelistedFields = ['firstName', 'lastName', 'email', 'username'];
@@ -50,6 +51,131 @@ exports.update = function (req, res) {
     });
   }
 };
+
+exports.getUserPosts = function (req, res) {
+  var user = req.profile;
+
+  if (user) {
+    Challenge.find({
+      author: user,
+      deleted: false
+    }).exec(function (err, posts) {
+      if (err) {
+        res.status(422).send(err);
+      }
+      else if (posts)
+      {
+        return res.json(posts);
+      }
+      else
+      {
+        res.status(404).send();
+      }
+    });
+  }
+  else{
+    res.status(401).send({
+      message: 'User is not signed in'
+    });
+  }
+
+};
+
+exports.follow = function(req, res) {
+  var other = req.profile;
+  var user = req.user;
+  var subbed = false;
+
+  if (user && other && user._id.equals(other._id)) {
+    res.status(422).send({
+      message: "Can't follow yourself!"
+    });
+  }
+  else if (user) {
+    if (other) {
+      user.following.forEach((elem, index) => {
+        if (elem.equals(other._id)){
+          subbed = index;
+        }
+      });
+      if (subbed) {
+        // Unfollow
+        user.following.splice(subbed, 1);
+      }
+      else {
+        // Follow
+        user.following.push(other);
+      }
+      other.save(function (err, __) {
+        user.save(function (err, theuser) {
+          if (err) {
+            res.status(422).send();
+          }
+          else {
+            res.json(theuser.following);
+          }
+        });
+      });
+    }
+    else {
+      res.status(404);
+    }
+  }
+  else{
+    res.status(401).send({
+      message: 'User is not signed in'
+    });
+  }
+}
+
+exports.getFollowing = function(req, res){
+  var user = req.profile ? req.profile : req.user;
+
+  if (user){
+    user.populate({
+      path: 'following',
+    }, function(err, theuser){
+      if (!err) {
+        res.json(theuser.following);
+      }
+      else{
+        res.status(422).send();
+      }
+    });
+  }
+  else{
+    res.status(404).send();
+  }
+}
+
+exports.getFollowers = function(req, res){
+  var user = req.profile ? req.profile : req.user;
+
+  if (user){
+    user.followers( function(err, users){
+      if (!err) {
+        res.json(users);
+      }
+      else{
+        res.status(422).send();
+      }
+    });
+  }
+  else{
+    res.status(404).send();
+  }
+}
+
+exports.getUser = function(req, res){
+  var user = req.profile;
+
+  if (user){
+    res.json(req.profile.sanitize());
+  }
+  else{
+    res.status(404).send();
+  }
+}
 
 /**
  * Update profile picture
@@ -146,18 +272,7 @@ exports.me = function (req, res) {
   // TODO create proper passport mock: See https://gist.github.com/mweibel/5219403
   var safeUserObject = null;
   if (req.user) {
-    safeUserObject = {
-      displayName: validator.escape(req.user.displayName),
-      provider: validator.escape(req.user.provider),
-      username: validator.escape(req.user.username),
-      created: req.user.created.toString(),
-      roles: req.user.roles,
-      profileImageURL: req.user.profileImageURL,
-      email: validator.escape(req.user.email),
-      lastName: validator.escape(req.user.lastName),
-      firstName: validator.escape(req.user.firstName),
-      additionalProvidersData: req.user.additionalProvidersData
-    };
+    safeUserObject = req.user.sanitize();
   }
 
   res.json(safeUserObject || null);

@@ -6,7 +6,8 @@
 var mongoose = require('mongoose'),
   path = require('path'),
   config = require(path.resolve('./config/config')),
-  Schema = mongoose.Schema;
+  Schema = mongoose.Schema,
+  validator = require('validator');
 
 var ChallengeSchema = new Schema({
   views: {
@@ -75,14 +76,71 @@ var ChallengeSchema = new Schema({
     type: Date,
     default: Date.now
   },
-  tags: {
-    type: [String]
-  },
+  tags: [{
+    name: {
+      type: String
+    },
+    rank: {
+      type: Number,
+      default: 0
+    }
+  }],
   author: {
     type: Schema.ObjectId,
     ref: 'User'
   }
-});
+})
+
+ChallengeSchema.methods.sanitize = function(){
+  return {
+    _id: this._id,
+  };
+}
+
+ChallengeSchema.methods.compareRank = function(other){
+  if (this.dailyLikes > other.dailyLikes || this.dailyViews > other.dailyViews || this.likes.length > other.likes.length || this.views > other.views || this.created > other.created) {
+    return -1;
+  } else if (this.dailyLikes === other.dailyLikes && this.dailyViews === other.dailyViews && this.likes.length === other.likes.length && this.views === other.views) {
+    return 0;
+  } else {
+    return 1;
+  }
+}
+
+ChallengeSchema.statics.calculateRanking = function(tag, cb) {
+  this.find({
+    "tags.name": tag
+  }).
+  sort({
+    dailyLikes: -1
+  }).
+  limit(100).
+  exec(function(err, posts){
+    if (posts.length < 5){
+      //Not enough posts in tags to rank
+      cb();
+    }
+    else{
+      posts[0]._ranking = 1;
+      posts.sort((a, b) => {
+        return a.compareRank(b);
+      });
+      posts.forEach((elem, index) => {
+        _this.findOneAndUpdate(
+          {
+            "_id": elem._id,
+            "tags._name": tag,
+          },
+          {
+            "$set": {
+              "tags.$.rank": index
+            }
+          });
+      });
+      cb();
+    }
+  });
+}
 
 ChallengeSchema.statics.findUniqueUsername = function (username, suffix, callback) {
   var _this = this;

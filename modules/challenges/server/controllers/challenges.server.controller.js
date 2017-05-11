@@ -43,10 +43,6 @@ exports.commentByID = function (req, res, next, id) {
   next();
 }
 
-
-/**
- * Update user details
- */
 exports.getUserPosts = function (req, res) {
   var user = req.user;
 
@@ -68,8 +64,156 @@ exports.getUserPosts = function (req, res) {
       }
     });
   }
-
+  else
+  {
+    res.status(401).send({
+      message: 'User is not signed in'
+    });
+  }
 };
+
+exports.getNewestPosts = function(req, res){
+  var user = req.user;
+
+  if (user) {
+    Challenge.find({
+      deleted: false
+    }).
+    sort({
+      created: -1,
+    }).
+    limit(10).
+    exec(function (err, posts) {
+      if (err) {
+        res.status(422).send(err);
+      }
+      else if (posts)
+      {
+        return res.json(posts);
+      }
+      else
+      {
+        res.status(404).send();
+      }
+    });
+  }
+  else
+  {
+    res.status(401).send({
+      message: 'User is not signed in'
+    });
+  }
+}
+
+exports.getDailyTopPosts = function(req, res){
+  var user = req.user;
+
+  if (user) {
+    Challenge.find({
+      deleted: false
+    }).
+    sort({
+      dailyLikes: -1,
+      dailyViews: -1,
+    }).
+    limit(10).
+    exec(function (err, posts) {
+      if (err) {
+        res.status(422).send(err);
+      }
+      else if (posts)
+      {
+        return res.json(posts);
+      }
+      else
+      {
+        res.status(404).send();
+      }
+    });
+  }
+  else
+  {
+    res.status(401).send({
+      message: 'User is not signed in'
+    });
+  }
+}
+
+exports.getFollowingPosts = function(req, res){
+  var user = req.user;
+  var following = [];
+
+  if (user) {
+    user.following.forEach((elem) => {
+      following.push(elem._id);
+    });
+    Challenge.find({
+      deleted: false
+    }).
+    sort({
+      dailyLikes: -1,
+      dailyViews: -1,
+    }).
+    where({
+      _id: {
+        $in: following
+      }
+    }).
+    limit(10).
+    exec(function (err, posts) {
+      if (err) {
+        res.status(422).send(err);
+      }
+      else if (posts)
+      {
+        return res.json(posts);
+      }
+      else
+      {
+        res.status(404).send();
+      }
+    });
+  }
+  else
+  {
+    res.status(401).send({
+      message: 'User is not signed in'
+    });
+  }
+}
+
+exports.getMostPopularPosts = function(req, res){
+  var user = req.user;
+
+  if (user) {
+    Challenge.find({
+      deleted: false
+    }).
+    sort({
+      views: -1,
+    }).
+    limit(10).
+    exec(function (err, posts) {
+      if (err) {
+        res.status(422).send(err);
+      }
+      else if (posts)
+      {
+        return res.json(posts);
+      }
+      else
+      {
+        res.status(404).send();
+      }
+    });
+  }
+  else
+  {
+    res.status(401).send({
+      message: 'User is not signed in'
+    });
+  }
+}
 
 exports.createPost = function (req, res) {
   var user = req.user;
@@ -149,7 +293,12 @@ exports.createPost = function (req, res) {
       var hashtags = post.description.match(/\B#\w*[a-zA-Z]+\w*/);
       //Post must have at least one hashtag
       if (hashtags.length > 0) {
-        post.tags = hashtags;
+        post.tags = [];
+        hashtags.forEach((tag) => {
+          post.tags.push({
+            name: tag
+          });
+        });
         resolve();
       }
       else
@@ -282,7 +431,12 @@ exports.updatePost = function (req, res) {
             var hashtags = desc.match(/\B#\w*[a-zA-Z]+\w*/);
             //Post must have at least one hashtag
             if (hashtags && hashtags.length > 0) {
-              post.tags = hashtags;
+              post.tags = [];
+              hashtags.forEach((tag) => {
+                post.tags.push({
+                  name: tag
+                });
+              });
               post.dailyLikes = 0;
               post.dailyViews = 0;
               //Actually save the post to the db with its final info
@@ -371,7 +525,7 @@ exports.deleteComment = function (req, res) {
         post.comments.id(comment._id).remove();
         post.save(function (err, thepost) {
           if (!err){
-            res.status(200).send();
+            res.json(thepost.comments);
           }
           else {
             res.status(404).send();
@@ -405,7 +559,7 @@ exports.editComment = function (req, res) {
           post.comments.id(comment._id).text = req.body.comment;
           post.save(function (err, thepost) {
             if (!err) {
-              res.status(200).send();
+              res.json(thepost.comments);
             }
             else {
               res.status(404).send();
@@ -434,13 +588,18 @@ exports.likePost = function (req, res) {
 
   if (user) {
     if (post) {
-      var found = false
-      _.each(post.likes, function(element, index, list) {
+      var found = false;
+      post.likes.forEach((element, index, list) => {
         if (element.equals(user._id)) {
           post.likes.splice(index, 1);
           post.dailyLikes--;
           post.save(function (err, thepost) {
             if (!err){
+              post.tags.forEach((tag) => {
+                Challenge.calculateRanking(tag.name, function(){
+
+                });
+              });
               res.status(200).send({
                 likes: post.likes.length
               });
@@ -453,8 +612,10 @@ exports.likePost = function (req, res) {
         }
       });
       if (!found) {
-        post.likes.push(user);
-        post.dailyLikes++;
+        if (!user._id.equals(post.author._id)){
+          post.likes.push(user);
+          post.dailyLikes++;
+        }
         post.save(function (err, thepost) {
           if (!err){
             res.status(200).send({
@@ -484,8 +645,10 @@ exports.viewPost = function (req, res) {
 
   if (user) {
     if (post) {
-      post.views++;
-      post.dailyViews++;
+      if (!user._id.equals(post.author._id)) {
+        post.views++;
+        post.dailyViews++;
+      }
       post.save(function (err, thepost) {
         if (!err) {
           res.status(200).send({
