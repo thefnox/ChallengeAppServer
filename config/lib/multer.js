@@ -8,7 +8,7 @@ module.exports.profileUploadFileFilter = function (req, file, cb) {
 };
 
 module.exports.contentUploadFileFilter = function (req, file, cb) {
-  if (file.mimetype !== 'video/mp4' && file.mimetype !== 'image/jpg') {
+  if (file.mimetype !== 'video/mp4' || file.mimetype !== 'image/jpg') {
     return cb(new Error('Only JPEG or MP4 files are allowed!'), false);
   }
   cb(null, true);

@@ -177,6 +177,20 @@ exports.getUser = function(req, res){
   }
 }
 
+exports.deleteSelf = function(req, res){
+  var user = req.user;
+  if (user){
+    user.remove();
+    req.logout();
+    res.status(200).send();
+  }
+  else{
+    res.status(401).send({
+      message: 'User is not signed in'
+    });
+  }
+}
+
 /**
  * Update profile picture
  */

@@ -28,7 +28,10 @@ exports.postByID = function (req, res, next, id) {
 
   Challenge.findOne({
     _id: id
-  }).exec(function (err, post) {
+  }).
+  populate('comments.author', 'username _id profileImageURL').
+  populate('author', 'username _id profileImageURL').
+  exec(function (err, post) {
     req.post = post;
     next();
   });
@@ -50,7 +53,9 @@ exports.getUserPosts = function (req, res) {
     Challenge.find({
       author: user,
       deleted: false
-    }).exec(function (err, posts) {
+    })
+      .populate('author', 'username _id profileImageURL')
+      .exec(function (err, posts) {
       if (err) {
         res.status(422).send(err);
       }
@@ -79,6 +84,7 @@ exports.getNewestPosts = function(req, res){
     Challenge.find({
       deleted: false
     }).
+    populate('author', 'username _id profileImageURL').
     sort({
       created: -1,
     }).
@@ -112,6 +118,7 @@ exports.getDailyTopPosts = function(req, res){
     Challenge.find({
       deleted: false
     }).
+    populate('author', 'username _id profileImageURL').
     sort({
       dailyLikes: -1,
       dailyViews: -1,
@@ -150,6 +157,7 @@ exports.getFollowingPosts = function(req, res){
     Challenge.find({
       deleted: false
     }).
+    populate('author', 'username _id profileImageURL').
     sort({
       dailyLikes: -1,
       dailyViews: -1,
@@ -189,6 +197,7 @@ exports.getMostPopularPosts = function(req, res){
     Challenge.find({
       deleted: false
     }).
+    populate('author', 'username _id profileImageURL').
     sort({
       views: -1,
     }).
@@ -238,7 +247,11 @@ exports.createPost = function (req, res) {
     .then(checkHashtags)
     .then(verifyChecksum)
     .then(addExtraInfo)
-    .then(function(){
+    .then(getContentDuration)
+    .then(function(duration){
+      if (duration){
+        post.content.duration = duration;
+      }
       //Actually save the post to the db with its final info
       post.save(function (err, thepost) {
         if (err){
@@ -345,21 +358,21 @@ exports.createPost = function (req, res) {
       post.content.size = req.file.size;
       post.content.filePath = req.file.path;
       post.content.staticURL = folder + "/" + req.file.filename;
-      if (post.content.isImage) {
-        //It's an image, so we're done
-        resolve();
-      }
-      else {
-        //Since it's a video, we have to get its duration
-        getDuration(post.content.filePath).then(function (duration) {
-          post.content.length = duration;
-          resolve();
-        })
-        .catch(function(){
-          reject();
-        });
-      }
+      resolve();
     });
+  }
+
+  function getContentDuration(){
+    /*
+    if (!post.content.isImage) {
+      //Since it's a video, we have to get its duration
+      return getDuration(post.content.filePath);
+    }
+    else{*/
+      return new Promise(function (resolve, reject) {
+        resolve();
+      });
+    //}
   }
 
 };

@@ -12,6 +12,7 @@ module.exports = function (app) {
   app.route('/api/user/:userId/following').get(users.getFollowing);
   app.route('/api/user/:userId/follow').get(users.follow);
   app.route('/api/user').put(users.update);
+  app.route('/api/user').delete(users.deleteSelf);
   app.route('/api/user/followers').get(users.getFollowers);
   app.route('/api/user/following').get(users.getFollowing);
   app.route('/api/user/password').post(users.changePassword);

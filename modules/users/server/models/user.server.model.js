@@ -8,6 +8,7 @@ var mongoose = require('mongoose'),
   config = require(path.resolve('./config/config')),
   Schema = mongoose.Schema,
   crypto = require('crypto'),
+  Challenge = mongoose.model('Challenge'),
   validator = require('validator'),
   generatePassword = require('generate-password'),
   owasp = require('owasp-password-strength-test');
@@ -169,6 +170,13 @@ UserSchema.pre('save', function (next) {
     }
     next();
   });
+});
+
+UserSchema.pre('remove', function(next) {
+  // 'this' is the client being removed. Provide callbacks here if you want
+  // to be notified of the calls' result.
+  Challenge.remove({author: this}).exec();
+  next();
 });
 
 /**
