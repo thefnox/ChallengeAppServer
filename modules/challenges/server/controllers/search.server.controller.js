@@ -28,7 +28,9 @@ exports.searchTags = function (req, res) {
   }
   else if (user) {
     Challenge.find({
-      "tags.name": tag,
+      "tags.name": {
+        $regex: (new RegExp( tag, 'i'))
+      },
       deleted: false
     }).
     limit(100).

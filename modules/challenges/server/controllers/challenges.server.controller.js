@@ -163,8 +163,8 @@ exports.getFollowingPosts = function(req, res){
       dailyViews: -1,
     }).
     where({
-      _id: {
-        $in: following
+      author: {
+        $in: user.following
       }
     }).
     limit(10).
@@ -303,13 +303,13 @@ exports.createPost = function (req, res) {
 
   function checkHashtags(){
     return new Promise(function (resolve, reject) {
-      var hashtags = post.description.match(/\B#\w*[a-zA-Z]+\w*/);
+      var hashtags = post.description.match(/\B#\w*[a-zA-Z]+\w*/gi);
       //Post must have at least one hashtag
       if (hashtags.length > 0) {
         post.tags = [];
         hashtags.forEach((tag) => {
-          post.tags.push({
-            name: tag
+           post.tags.push({
+            name: tag.toLowerCase()
           });
         });
         resolve();
