@@ -79,6 +79,9 @@ exports.signin = function (req, res, next) {
  */
 exports.signout = function (req, res) {
   req.logout();
+  res.status(200).send({
+    message: "Logged out successfully!"
+  });
 };
 
 /**
