@@ -196,14 +196,27 @@ exports.deleteSelf = function(req, res){
  */
 exports.changeProfilePicture = function (req, res) {
   var user = req.user;
-  var upload = multer(config.uploads.profileUpload).single('newProfilePicture');
-  var profileUploadFileFilter = require(path.resolve('./config/lib/multer')).profileUploadFileFilter;
   var existingImageUrl;
-
-  // Filtering to upload only images
-  upload.fileFilter = profileUploadFileFilter;
+  var profileUploadFileFilter = require(path.resolve('./config/lib/multer')).profileUploadFileFilter;
+  var upload;
+  var settings = config.uploads.profileUpload;
 
   if (user) {
+    var id = req.user.id;
+    var storage = multer.diskStorage({
+      destination: function (req, file, cb) {
+        cb(null, settings.dest);
+      },
+      filename: function (req, file, cb) {
+        cb(null, id + "." + file.originalname.split('.').pop());
+      }
+    });
+    profileUploadFileFilter = require(path.resolve('./config/lib/multer')).profileUploadFileFilter;
+    upload = multer({storage: storage}).single('newProfilePicture');
+
+    // Filtering to upload only images
+    upload.fileFilter = profileUploadFileFilter;
+    upload.limit = settings.limits;
     existingImageUrl = user.profileImageURL;
     uploadImage()
       .then(updateUser)
@@ -235,7 +248,7 @@ exports.changeProfilePicture = function (req, res) {
 
   function updateUser () {
     return new Promise(function (resolve, reject) {
-      user.profileImageURL = config.uploads.profileUpload.dest + req.file.filename;
+      user.profileImageURL = (settings.dest.replace(/\.\/public/gi, '')) + req.file.filename;
       user.save(function (err, theuser) {
         if (err) {
           reject(err);
@@ -248,20 +261,7 @@ exports.changeProfilePicture = function (req, res) {
 
   function deleteOldImage () {
     return new Promise(function (resolve, reject) {
-      if (existingImageUrl !== User.schema.path('profileImageURL').defaultValue) {
-        fs.unlink(existingImageUrl, function (unlinkError) {
-          if (unlinkError) {
-            console.log(unlinkError);
-            reject({
-              message: 'Error occurred while deleting old profile picture'
-            });
-          } else {
-            resolve();
-          }
-        });
-      } else {
-        resolve();
-      }
+      resolve();
     });
   }
 
