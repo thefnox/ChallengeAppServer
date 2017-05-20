@@ -33,6 +33,9 @@ exports.searchTags = function (req, res) {
       },
       deleted: false
     })
+    .sort({
+      "tags.rank": 1
+    })
     .populate('author', 'username _id profileImageURL')
     .limit(100)
     .exec(function (err, posts) {
