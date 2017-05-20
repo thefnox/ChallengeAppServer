@@ -32,15 +32,16 @@ exports.searchTags = function (req, res) {
         $regex: (new RegExp( tag, 'i'))
       },
       deleted: false
-    }).
-    limit(100).
-    exec(function (err, posts) {
+    })
+    .populate('author', 'username _id profileImageURL')
+    .limit(100)
+    .exec(function (err, posts) {
       if (err) {
         res.status(422).send(err);
       }
       else if (posts)
       {
-        return res.json(posts);
+        return res.json(posts);Ch
       }
       else
       {
