@@ -25,6 +25,8 @@ module.exports = function (app) {
   app.route('/api/post/popular').get(controller.getMostPopularPosts);
   //Get followers posts
   app.route('/api/post/following').get(controller.getFollowingPosts);
+  //Get winning posts
+  app.route('/api/post/winning').get(controller.getWinningPosts);
   //Create new post
   app.route('/api/post').post(controller.createPost);
   //Get info about a specific post
@@ -43,6 +45,8 @@ module.exports = function (app) {
   app.route('/api/post/:post_id/like').get(controller.likePost);
   //View post
   app.route('/api/post/:post_id/view').get(controller.viewPost);
+  //Get tags
+  app.route('/api/tags').get(controller.getPopularTags);
 
 
   app.param('post_id', controller.postByID);

@@ -46,6 +46,41 @@ exports.commentByID = function (req, res, next, id) {
   next();
 }
 
+exports.getPopularTags = function(req, res){
+  var user = req.user;
+
+  if (user){
+    Challenge.aggregate([
+      { "$project": { "tags":1 }},
+      { "$unwind": "$tags" },
+      { "$group": { "_id": "$tags.name", "count": { "$sum": 1 } }}
+    ])
+    .limit(8)
+    .sort({
+      count: -1
+    })
+    .exec(function (err, posts){
+      if (err) {
+        res.status(422).send(err);
+      }
+      else if (posts)
+      {
+        return res.json(posts);
+      }
+      else
+      {
+        res.status(404).send();
+      }
+    });
+  }
+  else
+  {
+    res.status(401).send({
+      message: 'User is not signed in'
+    });
+  }
+}
+
 exports.getUserPosts = function (req, res) {
   var user = req.user;
 
@@ -76,6 +111,41 @@ exports.getUserPosts = function (req, res) {
     });
   }
 };
+
+exports.getWinningPosts = function (req, res){
+  var user = req.user;
+
+  if (user) {
+    Challenge.find({
+      "tags.rank": 1,
+      deleted: false
+    })
+      .sort({
+        dailyLikes: -1,
+        dailyViews: -1,
+      })
+      .populate('author', 'username _id profileImageURL')
+      .exec(function (err, posts) {
+        if (err) {
+          res.status(422).send(err);
+        }
+        else if (posts)
+        {
+          return res.json(posts);
+        }
+        else
+        {
+          res.status(404).send();
+        }
+      });
+  }
+  else
+  {
+    res.status(401).send({
+      message: 'User is not signed in'
+    });
+  }
+}
 
 exports.getNewestPosts = function(req, res){
   var user = req.user;
