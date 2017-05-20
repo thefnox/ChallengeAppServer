@@ -59,7 +59,9 @@ exports.getUserPosts = function (req, res) {
     Challenge.find({
       author: user,
       deleted: false
-    }).exec(function (err, posts) {
+    })
+      .populate('author', 'username _id profileImageURL')
+      .exec(function (err, posts) {
       if (err) {
         res.status(422).send(err);
       }
