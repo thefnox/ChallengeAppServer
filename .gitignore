@@ -74,3 +74,4 @@ mongod
 *.ntvs*
 *.njsproj
 *.sln
+/public/content

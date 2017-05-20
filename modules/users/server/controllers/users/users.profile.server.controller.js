@@ -12,6 +12,7 @@ var _ = require('lodash'),
   config = require(path.resolve('./config/config')),
   User = mongoose.model('User'),
   Challenge = mongoose.model('Challenge'),
+  Report = mongoose.model('Report'),
   validator = require('validator');
 
 var whitelistedFields = ['firstName', 'lastName', 'email', 'username'];
@@ -82,6 +83,39 @@ exports.getUserPosts = function (req, res) {
   }
 
 };
+
+
+exports.report = function(req, res) {
+  var other = req.profile;
+  var user = req.user;
+
+  if (user && other && user._id.equals(other._id)) {
+    res.status(422).send({
+      message: "Can't report yourself!"
+    });
+  }
+  else if (user) {
+    if (other) {
+      var report = new Report({
+        author: user,
+        user: other,
+        description: req.body.description,
+        type: req.body.type
+      });
+      report.save((err) => {
+        res.json(report);
+      });
+    }
+    else {
+      res.status(404);
+    }
+  }
+  else{
+    res.status(401).send({
+      message: 'User is not signed in'
+    });
+  }
+}
 
 exports.follow = function(req, res) {
   var other = req.profile;

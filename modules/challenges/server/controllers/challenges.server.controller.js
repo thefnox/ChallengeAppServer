@@ -15,6 +15,7 @@ var _ = require('lodash'),
   config = require(path.resolve('./config/config')),
   User = mongoose.model('User'),
   Challenge = mongoose.model('Challenge'),
+  Report = mongoose.model('Report'),
   getDuration = require('get-video-duration'),
   checksum = require('checksum'),
   validator = require('validator');
@@ -557,6 +558,38 @@ exports.updatePost = function (req, res) {
   });
 };
 
+exports.report = function(req, res) {
+  var post = req.post;
+  var user = req.user;
+
+  if (user && post && user._id.equals(post.author._id)) {
+    res.status(422).send({
+      message: "Can't report your own post!"
+    });
+  }
+  else if (user) {
+    if (post) {
+      var report = new Report({
+        author: user,
+        post: post,
+        description: req.body.description,
+        type: req.body.type
+      });
+      report.save((err) => {
+        res.json(report);
+      });
+    }
+    else {
+      res.status(404);
+    }
+  }
+  else{
+    res.status(401).send({
+      message: 'User is not signed in'
+    });
+  }
+}
+
 exports.createComment = function (req, res) {
   var user = req.user;
   var post = req.post;
@@ -684,7 +717,7 @@ exports.likePost = function (req, res) {
                 });
               });
               res.status(200).send({
-                likes: post.likes.length
+                likes: thepost.likes
               });
             }
             else {
@@ -702,7 +735,7 @@ exports.likePost = function (req, res) {
         post.save(function (err, thepost) {
           if (!err){
             res.status(200).send({
-              likes: post.likes.length
+              likes: thepost.likes
             });
           }
           else {

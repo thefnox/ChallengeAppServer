@@ -94,6 +94,16 @@ var ChallengeSchema = new Schema({
 ChallengeSchema.methods.sanitize = function(){
   return {
     _id: this._id,
+    content: this.content,
+    tags: this.tags,
+    likes: this.likes.length,
+    views: this.views,
+    dailyLikes: this.dailyLikes,
+    dailyViews: this.dailyViews,
+    comments: this.comments,
+    description: this.description,
+    author: this.author,
+    created: this.created
   };
 }
 

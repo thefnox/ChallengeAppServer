@@ -6,6 +6,8 @@
 var path = require('path'),
   mongoose = require('mongoose'),
   User = mongoose.model('User'),
+  Challenge = mongoose.model('Challenge'),
+  Report = mongoose.model('Report'),
   errorHandler = require(path.resolve('./modules/core/server/controllers/errors.server.controller'));
 
 /**
@@ -53,7 +55,50 @@ exports.delete = function (req, res) {
 
     res.json(user);
   });
-};
+}
+
+exports.comments = function (req, res){
+  var user = req.model;
+  Challenge.aggregate({
+    $match: {'comments.author': user}
+  }, {
+    $unwind: '$comments'
+  }, {
+    $match: {'comments.author': user}
+  }, {
+    $project: {
+      name: '$comments.text',
+      age: '$comments.created'
+    }
+  })
+  .exec(function(err, comments){
+    if (err) {
+      return res.status(422).send({
+        message: errorHandler.getErrorMessage(err)
+      });
+    }
+
+    res.json(comments);
+  });
+}
+
+exports.reports = function (req, res) {
+  var user = req.model;
+
+  Report.find({
+    user: user,
+    seen: false
+  })
+  .exec(function (err, reports) {
+    if (err) {
+      return res.status(422).send({
+        message: errorHandler.getErrorMessage(err)
+      });
+    }
+
+    res.json(reports);
+  });
+}
 
 /**
  * List of Users

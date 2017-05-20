@@ -11,8 +11,12 @@ module.exports = function (app) {
     res.status(code || 500).json({ "error": message });
   }
 
+  var adminPolicy = require('../policies/admin.server.policy'),
+    admin = require('../controllers/admin.server.controller');
+
   // Root routing
   var controller = require('../controllers/challenges.server.controller');
+  var report = require('../controllers/report.server.controller');
 
   // Return a 404 for all undefined api, module or lib routes
   //Get user's posts
@@ -47,9 +51,20 @@ module.exports = function (app) {
   app.route('/api/post/:post_id/view').get(controller.viewPost);
   //Get tags
   app.route('/api/tags').get(controller.getPopularTags);
+  //Report post
+  app.route('/api/post/:post_id/report').post(controller.report);
+
+  //admin routes
+  app.route('/api/post/:post_id')
+    .put(adminPolicy.isAllowed, admin.update)
+    .delete(adminPolicy.isAllowed, admin.delete);
+
+  app.route('/api/post/:post_id/reports').get(adminPolicy.isAllowed, report.getPostReports);
+  app.route('/api/report/:report_id').post(adminPolicy.isAllowed, report.markAsRead);
 
 
   app.param('post_id', controller.postByID);
   app.param('comment_id', controller.commentByID);
+  app.param('report_id', report.reportByID);
 
 };
