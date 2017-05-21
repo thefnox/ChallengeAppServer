@@ -117,9 +117,9 @@ ChallengeSchema.methods.compareRank = function(other){
   }
 }
 
-ChallengeSchema.statics.calculateRanking = function(tag, cb) {
+ChallengeSchema.statics.calculateRanking = function(hashtag, cb) {
   this.find({
-    "tags.name": tag
+    "tags.name": hashtag
   }).
   sort({
     dailyLikes: -1
@@ -131,16 +131,10 @@ ChallengeSchema.statics.calculateRanking = function(tag, cb) {
       return a.compareRank(b);
     });
     posts.forEach((elem, index) => {
-      this.findOneAndUpdate(
-        {
-          "_id": elem._id,
-          "tags.name": tag,
-        },
-        {
-          "$set": {
-            "tags.$.rank": index
-          }
-        });
+      elem.tags.forEach((tag) => {
+        if (tag.name === hashtag) tag.rank = index + 1;
+      })
+      elem.save();
     });
     cb();
   });

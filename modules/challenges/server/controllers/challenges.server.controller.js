@@ -406,6 +406,9 @@ exports.createPost = function (req, res) {
           post.tags.push({
              name: tag.toLowerCase()
            });
+          Challenge.calculateRanking(tag.toLowerCase(), function() {
+
+          });
         });
         resolve();
       }
@@ -758,6 +761,11 @@ exports.likePost = function (req, res) {
         }
         post.save(function (err, thepost) {
           if (!err) {
+            post.tags.forEach((tag) => {
+              Challenge.calculateRanking(tag.name, function() {
+
+              });
+            });
             res.status(200).send({
               likes: thepost.likes
             });
