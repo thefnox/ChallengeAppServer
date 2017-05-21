@@ -61,6 +61,7 @@ module.exports = function (app) {
 
   app.route('/api/post/:post_id/reports').get(adminPolicy.isAllowed, report.getPostReports);
   app.route('/api/report/:report_id').post(adminPolicy.isAllowed, report.markAsRead);
+  app.route('/api/report').get(adminPolicy.isAllowed, report.getAllReports);
 
 
   app.param('post_id', controller.postByID);

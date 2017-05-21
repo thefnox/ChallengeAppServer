@@ -27,6 +27,10 @@ var ReportSchema = new Schema({
     type: Boolean,
     default: false
   },
+  created: {
+    type: Date,
+    default: Date.now
+  }
 });
 
 

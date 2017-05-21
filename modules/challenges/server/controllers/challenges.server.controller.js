@@ -12,6 +12,7 @@ var _ = require('lodash'),
   errorHandler = require(path.resolve('./modules/core/server/controllers/errors.server.controller')),
   mongoose = require('mongoose'),
   multer = require('multer'),
+  sharp = require('sharp'),
   config = require(path.resolve('./config/config')),
   User = mongoose.model('User'),
   Challenge = mongoose.model('Challenge'),
@@ -41,57 +42,26 @@ exports.postByID = function (req, res, next, id) {
 exports.commentByID = function (req, res, next, id) {
   var post = req.post;
 
-  if (post){
+  if (post) {
     req.comment = post.comments.id(id);
   }
   next();
-}
+};
 
-exports.getPopularTags = function(req, res){
+exports.getPopularTags = function(req, res) {
   var user = req.user;
 
-  if (user){
+  if (user) {
     Challenge.aggregate([
-      { "$project": { "tags":1 }},
-      { "$unwind": "$tags" },
-      { "$group": { "_id": "$tags.name", "count": { "$sum": 1 } }}
+      { '$project': { 'tags':1 } },
+      { '$unwind': '$tags' },
+      { '$group': { '_id': '$tags.name', 'count': { '$sum': 1 } } }
     ])
     .limit(8)
     .sort({
       count: -1
     })
-    .exec(function (err, posts){
-      if (err) {
-        res.status(422).send(err);
-      }
-      else if (posts)
-      {
-        return res.json(posts);
-      }
-      else
-      {
-        res.status(404).send();
-      }
-    });
-  }
-  else
-  {
-    res.status(401).send({
-      message: 'User is not signed in'
-    });
-  }
-}
-
-exports.getUserPosts = function (req, res) {
-  var user = req.user;
-
-  if (user) {
-    Challenge.find({
-      author: user,
-      deleted: false
-    })
-      .populate('author', 'username _id profileImageURL')
-      .exec(function (err, posts) {
+    .exec(function (err, posts) {
       if (err) {
         res.status(422).send(err);
       }
@@ -113,12 +83,43 @@ exports.getUserPosts = function (req, res) {
   }
 };
 
-exports.getWinningPosts = function (req, res){
+exports.getUserPosts = function (req, res) {
   var user = req.user;
 
   if (user) {
     Challenge.find({
-      "tags.rank": 1,
+      author: user,
+      deleted: false
+    })
+      .populate('author', 'username _id profileImageURL')
+      .exec(function (err, posts) {
+        if (err) {
+        res.status(422).send(err);
+      }
+      else if (posts)
+      {
+        return res.json(posts);
+      }
+      else
+      {
+        res.status(404).send();
+      }
+      });
+  }
+  else
+  {
+    res.status(401).send({
+      message: 'User is not signed in'
+    });
+  }
+};
+
+exports.getWinningPosts = function (req, res) {
+  var user = req.user;
+
+  if (user) {
+    Challenge.find({
+      'tags.rank': 1,
       deleted: false
     })
       .sort({
@@ -146,9 +147,9 @@ exports.getWinningPosts = function (req, res){
       message: 'User is not signed in'
     });
   }
-}
+};
 
-exports.getNewestPosts = function(req, res){
+exports.getNewestPosts = function(req, res) {
   var user = req.user;
 
   if (user) {
@@ -180,9 +181,9 @@ exports.getNewestPosts = function(req, res){
       message: 'User is not signed in'
     });
   }
-}
+};
 
-exports.getDailyTopPosts = function(req, res){
+exports.getDailyTopPosts = function(req, res) {
   var user = req.user;
 
   if (user) {
@@ -215,9 +216,9 @@ exports.getDailyTopPosts = function(req, res){
       message: 'User is not signed in'
     });
   }
-}
+};
 
-exports.getFollowingPosts = function(req, res){
+exports.getFollowingPosts = function(req, res) {
   var user = req.user;
   var following = [];
 
@@ -259,9 +260,9 @@ exports.getFollowingPosts = function(req, res){
       message: 'User is not signed in'
     });
   }
-}
+};
 
-exports.getMostPopularPosts = function(req, res){
+exports.getMostPopularPosts = function(req, res) {
   var user = req.user;
 
   if (user) {
@@ -293,9 +294,10 @@ exports.getMostPopularPosts = function(req, res){
       message: 'User is not signed in'
     });
   }
-}
+};
 
 exports.createPost = function (req, res) {
+  var image;
   var user = req.user;
   var settings = config.uploads.contentUpload;
   var contentUploadFileFilter = require(path.resolve('./config/lib/multer')).contentUploadFileFilter;
@@ -306,10 +308,10 @@ exports.createPost = function (req, res) {
       cb(null, settings.dest);
     },
     filename: function (req, file, cb) {
-      cb(null, id + "." + file.originalname.split('.').pop());
+      cb(null, id + '_orig.' + file.originalname.split('.').pop());
     }
   });
-  var upload = multer({storage: storage}).single('content');
+  var upload = multer({ storage: storage }).single('content');
   upload.fileFilter = contentUploadFileFilter;
   upload.limit = settings.limits;
   if (user) {
@@ -319,23 +321,45 @@ exports.createPost = function (req, res) {
     .then(verifyChecksum)
     .then(addExtraInfo)
     .then(getContentDuration)
-    .then(function(duration){
-      if (duration){
-        post.content.duration = duration;
+    .then(function(data) {
+      if (data){
+        console.log(data);
       }
-      //Actually save the post to the db with its final info
+      if (post.content.isImage) {
+        image = sharp(post.content.filePath)
+        .metadata()
+        .then(function(metadata){
+          if (metadata) {
+            var path = './public' + post.content.staticURL;
+            return sharp(post.content.filePath)
+              .resize(512, 512, {
+                kernel: sharp.kernel.nearest,
+                interpolator: sharp.interpolator.nohalo
+              })
+              .withoutEnlargement()
+              .toFile(path);
+          }
+        })
+        .then(function(data){
+
+        })
+        .catch(function(err){
+          console.log(err);
+        });
+      }
+      // Actually save the post to the db with its final info
       post.save(function (err, thepost) {
-        if (err){
+        if (err) {
           res.status(422).send(err);
         }
-        else{
+        else {
           res.json(thepost);
         }
       });
     })
     .catch(function (err) {
-      //Upload error
-      res.status(422).send(typeof(err) === "string" ? err : err.message );
+      // Upload error
+      res.status(422).send(typeof(err) === 'string' ? err : err.message);
     });
   }
   else
@@ -345,9 +369,9 @@ exports.createPost = function (req, res) {
     });
   }
 
-  function doTheUpload(){
+  function doTheUpload() {
     return new Promise(function (resolve, reject) {
-      //Do the actual uploading
+      // Do the actual uploading
       upload(req, res, function (uploadError) {
         if (uploadError) {
           reject(errorHandler.getErrorMessage(uploadError));
@@ -358,92 +382,92 @@ exports.createPost = function (req, res) {
     });
   }
 
-  function checkDescription(){
+  function checkDescription() {
     return new Promise(function (resolve, reject) {
       var desc = req.body.description;
-      //Description must exist and must be between 1 and 140 characters long
-      if (desc && desc.length > 0 && desc.length <= 140 ){
+      // Description must exist and must be between 1 and 140 characters long
+      if (desc && desc.length > 0 && desc.length <= 140) {
         post.description = desc;
         resolve();
       }
-      else{
-        reject("Description must be between 1 and 140 characters long.");
+      else {
+        reject('Description must be between 1 and 140 characters long.');
       }
     });
   }
 
-  function checkHashtags(){
+  function checkHashtags() {
     return new Promise(function (resolve, reject) {
       var hashtags = post.description.match(/\B#\w*[a-zA-Z]+\w*/gi);
-      //Post must have at least one hashtag
-      if (hashtags.length > 0) {
+      // Post must have at least one hashtag
+      if (hashtags.length > 0 && hashtags.length <= 5) {
         post.tags = [];
         hashtags.forEach((tag) => {
-           post.tags.push({
-            name: tag.toLowerCase()
-          });
+          post.tags.push({
+             name: tag.toLowerCase()
+           });
         });
         resolve();
       }
       else
       {
-        reject("Post must have at least one hashtag.");
+        reject('Post must have between 1 and 5 hashtags.');
       }
     });
   }
 
-  function verifyChecksum(){
-    return new Promise(function (resolve, reject){
+  function verifyChecksum() {
+    return new Promise(function (resolve, reject) {
       post.content = {};
-      //Get the content checksum
+      // Get the content checksum
       checksum.file(req.file.path, function (err, sum) {
         if (err) {
           reject(err);
         }
         else {
-          //Check that the checksum doesn't already exist
+          // Check that the checksum doesn't already exist
           Challenge.findOne({
-            "content.checksum": sum,
-            "deleted": false
+            'content.checksum': sum,
+            'deleted': false
           }, function (err, otherpost) {
             if (err || otherpost) {
-              //Content is not unique
-              reject("Post must have unique content!");
+              // Content is not unique
+              reject('Post must have unique content!');
             }
             else {
               post.content.checksum = sum;
               resolve();
             }
-         });
+          });
         }
       });
     });
   }
 
-  function addExtraInfo(){
-    return new Promise(function (resolve, reject){
-      //Remove ./public from url
+  function addExtraInfo() {
+    return new Promise(function (resolve, reject) {
+      // Remove ./public from url
       var folder = settings.dest.replace(/\.\/public/g, '');
       post.author = user;
-      post.content.isImage = req.file.mimetype !== "video/mp4";
+      post.content.isImage = req.file.mimetype !== 'video/mp4';
       post.content.size = req.file.size;
-      post.content.filePath = req.file.path;
-      post.content.staticURL = folder + "/" + req.file.filename;
+      post.content.filePath = settings.dest + req.file.filename;
+      post.content.staticURL = (folder + '/' + (req.file.filename.replace('_orig', ''))).replace('/\.[0-9a-z]+$/i', '.jpg');
       resolve();
     });
   }
 
-  function getContentDuration(){
+  function getContentDuration() {
     /*
     if (!post.content.isImage) {
       //Since it's a video, we have to get its duration
       return getDuration(post.content.filePath);
     }
     else{*/
-      return new Promise(function (resolve, reject) {
+    return new Promise(function (resolve, reject) {
         resolve();
       });
-    //}
+    // }
   }
 
 };
@@ -451,7 +475,7 @@ exports.createPost = function (req, res) {
 exports.getPost = function (req, res) {
   var post = req.post;
 
-  if (post && !post.deleted){
+  if (post && !post.deleted) {
     res.json(post);
   }
   else
@@ -466,12 +490,12 @@ exports.deletePost = function (req, res) {
 
   if (user) {
     if (post) {
-      if (!post.author.equals(user._id)){
+      if (!post.author.equals(user._id)) {
         res.status(403).send({
           message: 'Not your challenge'
         });
       }
-      else{
+      else {
         post.deleted = true;
         post.save(function (err, thepost) {
           if (err) {
@@ -509,11 +533,11 @@ exports.updatePost = function (req, res) {
           });
         }
         else {
-          //Description must exist and must be between 1 and 140 characters long
+          // Description must exist and must be between 1 and 140 characters long
           if (desc && desc.length > 0 && desc.length <= 140) {
             post.description = desc;
             var hashtags = desc.match(/\B#\w*[a-zA-Z]+\w*/);
-            //Post must have at least one hashtag
+            // Post must have at least one hashtag
             if (hashtags && hashtags.length > 0) {
               post.tags = [];
               hashtags.forEach((tag) => {
@@ -523,7 +547,7 @@ exports.updatePost = function (req, res) {
               });
               post.dailyLikes = 0;
               post.dailyViews = 0;
-              //Actually save the post to the db with its final info
+              // Actually save the post to the db with its final info
               post.save(function (err, thepost) {
                 if (err) {
                   res.status(422).send(err);
@@ -535,13 +559,13 @@ exports.updatePost = function (req, res) {
             }
             else {
               res.status(422).send({
-                message: "Post must have at least one hashtag."
+                message: 'Post must have at least one hashtag.'
               });
             }
           }
           else {
             res.status(422).send({
-              message: "Description must be between 1 and 140 characters long."
+              message: 'Description must be between 1 and 140 characters long.'
             });
           }
         }
@@ -564,7 +588,7 @@ exports.report = function(req, res) {
 
   if (user && post && user._id.equals(post.author._id)) {
     res.status(422).send({
-      message: "Can't report your own post!"
+      message: 'Can\'t report your own post!'
     });
   }
   else if (user) {
@@ -583,12 +607,12 @@ exports.report = function(req, res) {
       res.status(404);
     }
   }
-  else{
+  else {
     res.status(401).send({
       message: 'User is not signed in'
     });
   }
-}
+};
 
 exports.createComment = function (req, res) {
   var user = req.user;
@@ -598,7 +622,7 @@ exports.createComment = function (req, res) {
     var comment = req.body.comment;
     if (user) {
       if (post && !post.deleted) {
-        if (comment && comment.length > 1 && comment.length < 140){
+        if (comment && comment.length > 1 && comment.length < 140) {
           post.comments.push({
             author: user,
             text: comment
@@ -612,9 +636,9 @@ exports.createComment = function (req, res) {
             }
           });
         }
-        else{
+        else {
           res.status(422).send({
-            message: "Comment must be between 1 and 140 characters long."
+            message: 'Comment must be between 1 and 140 characters long.'
           });
         }
       }
@@ -637,10 +661,10 @@ exports.deleteComment = function (req, res) {
 
   if (user) {
     if (post) {
-      if (comment){
+      if (comment) {
         post.comments.id(comment._id).remove();
         post.save(function (err, thepost) {
-          if (!err){
+          if (!err) {
             res.json(thepost.comments);
           }
           else {
@@ -648,7 +672,7 @@ exports.deleteComment = function (req, res) {
           }
         });
       }
-      else{
+      else {
         res.status(404).send();
       }
     }
@@ -710,9 +734,9 @@ exports.likePost = function (req, res) {
           post.likes.splice(index, 1);
           post.dailyLikes--;
           post.save(function (err, thepost) {
-            if (!err){
+            if (!err) {
               post.tags.forEach((tag) => {
-                Challenge.calculateRanking(tag.name, function(){
+                Challenge.calculateRanking(tag.name, function() {
 
                 });
               });
@@ -728,12 +752,12 @@ exports.likePost = function (req, res) {
         }
       });
       if (!found) {
-        if (!user._id.equals(post.author._id)){
+        if (!user._id.equals(post.author._id)) {
           post.likes.push(user);
           post.dailyLikes++;
         }
         post.save(function (err, thepost) {
-          if (!err){
+          if (!err) {
             res.status(200).send({
               likes: thepost.likes
             });

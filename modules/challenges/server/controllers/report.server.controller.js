@@ -28,9 +28,9 @@ exports.markAsRead = function(req, res){
   });
 
   res.status(200).send();
-}
+};
 
-exports.getPostReports = function(req, res){
+exports.getPostReports = function(req, res) {
   var post = req.post;
 
   Report.find({
@@ -46,7 +46,27 @@ exports.getPostReports = function(req, res){
 
     res.json(reports);
   });
-}
+};
+
+
+exports.getAllReports = function(req, res){
+
+  Report
+  .find({})
+  .sort({
+    created: -1
+  })
+  .exec(function (err, reports) {
+    if (err) {
+      return res.status(422).send({
+        message: errorHandler.getErrorMessage(err)
+      });
+    }
+
+    res.json(reports);
+  });
+};
+
 
 exports.reportByID = function (req, res, next, id) {
   if (!mongoose.Types.ObjectId.isValid(id)) {
