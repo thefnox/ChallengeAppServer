@@ -136,7 +136,7 @@ ChallengeSchema.statics.calculateRanking = function(tag, cb) {
         return a.compareRank(b);
       });
       posts.forEach((elem, index) => {
-        _this.findOneAndUpdate(
+        this.findOneAndUpdate(
           {
             "_id": elem._id,
             "tags._name": tag,
