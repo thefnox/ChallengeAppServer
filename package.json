@@ -73,6 +73,7 @@
     "passport-twitter": "~1.0.4",
     "phantomjs-prebuilt": "~2.1.4",
     "serve-favicon": "~2.3.0",
+    "sharp": "^0.17.3",
     "socket.io": "^1.4.8",
     "validator": "~6.0.0",
     "winston": "^2.2.0",
