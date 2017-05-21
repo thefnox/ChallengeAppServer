@@ -23,6 +23,9 @@ exports.invokeRolesPolicies = function () {
     }, {
       resources: '/api/report/:report_id',
       permissions: '*'
+    }, {
+      resources: '/api/report',
+      permissions: '*'
     }]
   }]);
 };
