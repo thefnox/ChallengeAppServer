@@ -455,7 +455,13 @@ exports.createPost = function (req, res) {
       post.content.isImage = req.file.mimetype !== 'video/mp4';
       post.content.size = req.file.size;
       post.content.filePath = settings.dest + req.file.filename;
-      post.content.staticURL = (folder + '/' + (req.file.filename.replace('_orig', ''))).replace('/\.[0-9a-z]+$/i', '.jpg');
+      if (post.content.isimage){
+        post.content.staticURL = (folder + '/' + (req.file.filename.replace('_orig', '')));
+      }
+      else
+      {
+        post.content.staticURL = folder + '/' + req.file.filename;
+      }
       resolve();
     });
   }
