@@ -125,30 +125,24 @@ ChallengeSchema.statics.calculateRanking = function(tag, cb) {
     dailyLikes: -1
   }).
   limit(100).
-  exec(function(err, posts){
-    if (posts.length < 5){
-      //Not enough posts in tags to rank
-      cb();
-    }
-    else{
-      posts[0]._ranking = 1;
-      posts.sort((a, b) => {
-        return a.compareRank(b);
-      });
-      posts.forEach((elem, index) => {
-        this.findOneAndUpdate(
-          {
-            "_id": elem._id,
-            "tags._name": tag,
-          },
-          {
-            "$set": {
-              "tags.$.rank": index
-            }
-          });
-      });
-      cb();
-    }
+  exec((err, posts) => {
+    posts[0]._ranking = 1;
+    posts.sort((a, b) => {
+      return a.compareRank(b);
+    });
+    posts.forEach((elem, index) => {
+      this.findOneAndUpdate(
+        {
+          "_id": elem._id,
+          "tags.name": tag,
+        },
+        {
+          "$set": {
+            "tags.$.rank": index
+          }
+        });
+    });
+    cb();
   });
 }
 
