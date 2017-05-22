@@ -452,7 +452,7 @@ exports.createPost = function (req, res) {
       // Remove ./public from url
       var folder = settings.dest.replace(/\.\/public/g, '');
       post.author = user;
-      post.content.image = req.file.mimetype !== 'video/mp4';
+      post.content.image = !req.file.filename.includes('.mp4');
       post.content.size = req.file.size;
       post.content.filePath = settings.dest + req.file.filename;
       if (post.content.image){
