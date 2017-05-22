@@ -53,6 +53,7 @@ exports.getPopularTags = function(req, res) {
 
   if (user) {
     Challenge.aggregate([
+      { '$match': { 'deleted': false }},
       { '$project': { 'tags':1 } },
       { '$unwind': '$tags' },
       { '$group': { '_id': '$tags.name', 'count': { '$sum': 1 } } }
