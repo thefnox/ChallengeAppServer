@@ -455,7 +455,7 @@ exports.createPost = function (req, res) {
       post.content.isImage = req.file.mimetype !== 'video/mp4';
       post.content.size = req.file.size;
       post.content.filePath = settings.dest + req.file.filename;
-      if (post.content.isimage){
+      if (post.content.isImage){
         post.content.staticURL = (folder + '/' + (req.file.filename.replace('_orig', '')));
       }
       else
